@@ -34,6 +34,7 @@ using namespace std;
   exit(-1); }
 
 #define MAXTRANS 1024  // max number of outstanding transactions in one Ndb object
+#define MAX_TRANSALLOC_RETRY 10
 
 static char connstring[255] = {};
 static char database[255] = {};
@@ -140,7 +141,7 @@ void disconnect_from_cluster(Ndb_cluster_connection *c)
 {
   delete c;
 
-  ndb_end(2);
+  ndb_end(0);
 }
 
 // Insert problems with varchar: use this!
@@ -280,7 +281,7 @@ int main(int argc, char* argv[])
       cursor = 0;
     }
 
-    while(true) {
+    while(int retries = 0; retries < MAX_TRANSALLOC_RETRY; retries++) {
       // for(int cursor=0; cursor < MAXTRANS; cursor++) 
       while(true)
       {
@@ -310,6 +311,7 @@ int main(int argc, char* argv[])
       }
       if(current == -1) {
         cerr << "WARNING: Number of transactions in parallel exceeds the maximum. retrying..." << endl;
+        usleep(1000);
         continue;
       } else {
         break;
