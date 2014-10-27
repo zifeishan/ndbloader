@@ -1,33 +1,11 @@
-// #include <iostream>
-// #include <fstream>
-// #include <sstream>
-// #include <iterator>
-// #include <vector>
-// #include <queue>
-// #include <algorithm>
-// #include <my_global.h>
-// #include <mysql.h>
-// #include <my_config.h>
-// #include <m_ctype.h>
-// #include <NdbApi.hpp>
-
-// #include <decimal.h>
-
-// #include <time.h>
-// #include <sys/time.h>
-// #include <string.h>
-// #include <getopt.h>
-
-// Example
-
-/** 
-RUN WITH:
-  DYLD_LIBRARY_PATH=/Users/zifei/package/mysql/lib
-
-Example run:
-  ./ndbloader 127.0.0.1:1186
-
-*/
+/**
+ * DeepDive NDB loader
+ * 
+ * @author Zifei Shan
+ *
+ * This loader loads a TSV file into mysql cluster database. 
+ * It can be executed in parallel.
+ */
 
 #include <stdio.h>
 #include <iostream>
@@ -55,8 +33,7 @@ using namespace std;
   PRINT_ERROR(error.code,error.message); \
   exit(-1); }
 
-#define MAXTRANS 1000000            //max number of outstanding
-                                    //transaction in one Ndb object
+#define MAXTRANS 1024  // max number of outstanding transactions in one Ndb object
 
 static char connstring[255] = {};
 static char database[255] = {};
@@ -70,13 +47,6 @@ static int nPreparedTransactions = 0; // a counter
 
 static unsigned int sleepTimeMilli = 0;
 
-// static Ndb* ndb;
-
-// static NdbTransaction* tConArray[MAXTRANS] = {}; // all transactions
-// static int conTail = 0; 
-
-
-
 /**
  * callback struct.
  * transaction :  index of the transaction in transaction[] array below
@@ -85,9 +55,7 @@ static unsigned int sleepTimeMilli = 0;
  */
 typedef struct  {
   Ndb * ndb;
-  int    transaction;  
-  // int    data;
-  // int    retries;
+  int    transaction;
 } async_callback_t;
 
 /**
@@ -117,28 +85,18 @@ static void
 callback(int result, NdbTransaction* NdbObject, void* aObject)
 {
 
-  // cerr << (NdbTransaction*)aObject << endl;
-  // NdbConnection **array_ref = (NdbConnection**)aObject;
-  // assert(NdbObject == *array_ref);
-  // *array_ref = NULL;
-
   async_callback_t * cbData = (async_callback_t *)aObject;
 
-  if (result < 0)
+  // in case error occurs, terminate the process.
+  // TODO: error handling
+  if (result < 0) 
   {
-    // cerr << result << endl;
-    // cerr << "Error when handling " << cbData->transaction << endl;
     cerr << "Error when handling transaction #" << cbData->transaction << ". MESSAGE: " <<  NdbObject->getNdbError().message << ". Error code = " <<  NdbObject->getNdbError().code << endl;
-    // cerr << "Execute: " <<  NdbObject->getNdbError().message << endl;
-    // cerr << "Error code = " <<  NdbObject->getNdbError().code << endl;
+
     delete cbData;
-    // asynchExitHandler((Ndb*)cbData->ndb);
     if ((Ndb*)cbData->ndb != NULL)
       delete (Ndb*)cbData->ndb;
     exit(-1);
-
-    // ndbout_c("execute: %s", NdbObject->getNdbError().message);
-    // ndbout_c("Error code = %d", NdbObject->getNdbError().code);
   } 
   else 
   {
@@ -147,19 +105,13 @@ callback(int result, NdbTransaction* NdbObject, void* aObject)
      */
     closeTransaction((Ndb*)cbData->ndb, cbData);
     delete cbData;
-
-    // ndb->closeTransaction(NdbObject);
-    // // NdbObject->close(); /* Close transaction */
-    // return;
   }
 }
-
-
-
 
 Ndb_cluster_connection* connect_to_cluster(char* conn_string);
 void disconnect_from_cluster(Ndb_cluster_connection *c);
 
+// Init the connection to an NDB cluster.
 Ndb_cluster_connection* connect_to_cluster(char* conn_string)
 {
   Ndb_cluster_connection* c;
@@ -218,6 +170,7 @@ void print_help() {
   printf("Usage: ndbloader conn_string database "
     "data_file table_format_file [nParallelTransactions=%d] [milliSleep=%d]", 
     TRANACTION_SIZE, sleepTimeMilli);
+  printf("Note you need to have dynamic library path set. Add `mysql_config --variable=pkglibdir` to your LD library path.");
 }
 
 int main(int argc, char* argv[])
@@ -248,11 +201,8 @@ int main(int argc, char* argv[])
     tNoOfParallelTrans = atoi(argv[5]);
   }
   if (argc >= 7) {
-    // TRANACTION_SIZE = atoi(argv[6]);
     sleepTimeMilli = atoi(argv[6]);
   }
-  // printf("transaction size: %d\n", TRANACTION_SIZE);
-  // printf("Number of parallel transactions: %d\n", tNoOfParallelTrans);
 
   strcpy(connstring, argv[1]);
   strcpy(database, argv[2]);
@@ -264,7 +214,6 @@ int main(int argc, char* argv[])
   string tmpTableName;
   getline(fin, tmpTableName);
   strcpy(tablename, tmpTableName.c_str());
-  // printf("Copying to table: %s\n", tablename);
 
   // Initialize transaction array
   for(int i = 0 ; i < MAXTRANS ; i++) 
@@ -281,7 +230,7 @@ int main(int argc, char* argv[])
     {
       string value;
       if( getline(lineReader, value) ) {
-        // "key, value"
+        // "key value"
         fieldName.push_back(key);
         fieldType.push_back(value);
         // printf("Attr: %s %s\n", key.c_str(), value.c_str());
@@ -290,17 +239,12 @@ int main(int argc, char* argv[])
   }
   fin.close();
 
-
-  // printf("Conn String: %s\n", argv[1]);
-
   Ndb_cluster_connection *conn = connect_to_cluster(connstring);
-  conn->set_timeout(1000000); // 1000s
-  // printf("Connection Established. Conn String: %s\n", connstring);
 
   Ndb* ndb = new Ndb(conn, database);
   if (ndb->init(1024) == -1)
   {
-     // what is this?
+     // pass
   }
   ndb->waitUntilReady(10000);
   printf("Connected: database [%s], connstr [%s], #parallelTrans=[%d]. Load table [%s] from file [%s]...\n", database, connstring, tNoOfParallelTrans, tablename, filepath);
@@ -314,41 +258,10 @@ int main(int argc, char* argv[])
   if (myTable == NULL) 
     APIERROR(myDict->getNdbError());
 
-
-
-  // // DEBUG
-  // NdbTransaction *myTransaction= ndb->startTransaction();
-  // cout << myTransaction << endl;
-  // if (myTransaction == NULL) APIERROR(ndb->getNdbError());
-  // for (int i = 0; i < 5; i++) {
-  //   printf("Inserting for i=%d\n", i);
-    
-  //   NdbOperation *myOperation= myTransaction->getNdbOperation(myTable);
-    
-  //   myOperation->insertTuple();
-  //   myOperation->setValue("value", i);
-  //   char varcharArr[255] = {};
-  //   make_ndb_varchar(varcharArr, to_string(i).c_str());
-  //   myOperation->equal("id", varcharArr);
-    
-  //   if (myTransaction->execute( NdbTransaction::NoCommit ) == -1)
-  //     APIERROR(myTransaction->getNdbError());
-    
-    
-  // }
-
-  // if (myTransaction->execute( NdbTransaction::Commit ) == -1)
-  //     APIERROR(myTransaction->getNdbError());  
-  // ndb->closeTransaction(myTransaction);
-
-
-  // int primaryKeyIndex = 1;
-
   // Load the data
   bool dataleft = false;
 
   typedef vector<vector<string> > Rows;
-  // NdbTransaction *myTransaction = ndb->startTransaction();;
 
   // Rows rows;
   ifstream input(filepath);
@@ -366,15 +279,13 @@ int main(int argc, char* argv[])
     if (cursor >= MAXTRANS) {
       cursor = 0;
     }
+
     while(true) {
-      for(int cursor=0; cursor < MAXTRANS; cursor++) // TODO optimize this
-      // while(true)
+      // for(int cursor=0; cursor < MAXTRANS; cursor++) 
+      while(true)
       {
-        // printf("%d %d %a\n", i, transaction[i].used, transaction[i].conn );
         if(transaction[cursor].used == 0)
-        {
-          // printf("Trans %d\n", i);
-          
+        {          
           current = cursor;
           cb = new async_callback_t;
           /**
@@ -405,10 +316,6 @@ int main(int argc, char* argv[])
       }
     }
 
-
-
-    // DEBUG
-    // printf("\n");
     transaction[current].conn = ndb->startTransaction();
 
     istringstream ss(row);
@@ -419,9 +326,6 @@ int main(int argc, char* argv[])
     // Iterate for each field
     int i = 0;
     for (string field; getline(ss, field, field_delim); i++) {
-
-      // DEBUG
-      // printf("%d %s\t", i, field.c_str());
 
       if (strcmp(fieldType[i].c_str(), "int") == 0) {
         // using a int64 to prevent problems..
@@ -463,9 +367,6 @@ int main(int argc, char* argv[])
                                          &callback, 
                                          cb
                                          );
-    // conTail++;
-    // if (conTail == MAXTRANS)
-    //   conTail = 0;
     nPreparedTransactions++;
     rowCounter++;
     dataleft = true;
@@ -488,18 +389,10 @@ int main(int argc, char* argv[])
 
     }
 
-    // SYNC
+    // The SYNC way that can set multiple operations in one commit:
     // if (myTransaction->execute( NdbTransaction::NoCommit ) == -1)
     //   APIERROR(myTransaction->getNdbError());
 
-    // DEPRECATED
-    // if (myTransaction->execute( NdbTransaction::Commit ) == -1)
-    //   APIERROR(myTransaction->getNdbError());
-    // ndb->closeTransaction(myTransaction);
-    // myTransaction = ndb->startTransaction();
-
-
-    
     // if (rowCounter % TRANACTION_SIZE == 0) {
     //   // commit
     //   if (myTransaction->execute( NdbTransaction::Commit ) == -1)
@@ -515,30 +408,16 @@ int main(int argc, char* argv[])
     ndb->sendPollNdb(3000, nPreparedTransactions );
     nPreparedTransactions=0;
       
-
+    // SYNC way
     // if (myTransaction->execute( NdbTransaction::Commit ) == -1)
     //   APIERROR(myTransaction->getNdbError());
     // ndb->closeTransaction(myTransaction);    
   }
 
-
-
-  /**
-  // operation
-  for (countAttributes = 1;
-           countAttributes < loopCountAttributes; countAttributes++) {
-        localNdbOperation->setValue(countAttributes + 1,
-                                    (char*)&attrValue[0]);
-      }//for
-  // record operation
-  op = pTrans->insertTuple(g_record, record, g_record, record);
-  */
-
-
   ndb->waitUntilReady(10000);
 
   delete ndb;
-  // disconnect_from_cluster(conn);
+  disconnect_from_cluster(conn);
 
   return EXIT_SUCCESS;
 }
