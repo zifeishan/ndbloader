@@ -35,10 +35,12 @@ Example run:
 #include <sstream>
 #include <string.h>
 #include <stdlib.h>
+#include <vector>
+#include <unistd.h>
+
 #include <NdbApi.hpp>
 #include <mysql.h>
 #include <mgmapi.h>
-#include <vector>
 
 using namespace std;
 
@@ -65,6 +67,8 @@ static int TRANACTION_SIZE = 10000;
 
 static int tNoOfParallelTrans = 60;   // max no of parallel trans at a time
 static int nPreparedTransactions = 0; // a counter
+
+static unsigned int sleepTimeMilli = 20;
 
 // static Ndb* ndb;
 
@@ -122,8 +126,9 @@ callback(int result, NdbTransaction* NdbObject, void* aObject)
 
   if (result < 0)
   {
-    cerr << result << endl;
-    cerr << "Error when handling " << cbData->transaction << endl;
+    // cerr << result << endl;
+    // cerr << "Error when handling " << cbData->transaction << endl;
+    cerr << "Error when handling transaction #" << cbData->transaction << ". MESSAGE: " <<  NdbObject->getNdbError().message << ". Error code = " <<  NdbObject->getNdbError().code << endl;
     // cerr << "Execute: " <<  NdbObject->getNdbError().message << endl;
     // cerr << "Error code = " <<  NdbObject->getNdbError().code << endl;
     delete cbData;
@@ -211,8 +216,8 @@ vector<string> fieldType;
 
 void print_help() {
   printf("Usage: ndbloader conn_string database "
-    "data_file table_format_file [nParallelTransactions=%d]", 
-    TRANACTION_SIZE);
+    "data_file table_format_file [nParallelTransactions=%d] [milliSleep=%d]", 
+    TRANACTION_SIZE, sleepTimeMilli);
 }
 
 int main(int argc, char* argv[])
@@ -243,7 +248,8 @@ int main(int argc, char* argv[])
     tNoOfParallelTrans = atoi(argv[5]);
   }
   if (argc >= 7) {
-    TRANACTION_SIZE = atoi(argv[6]);
+    // TRANACTION_SIZE = atoi(argv[6]);
+    sleepTimeMilli = atoi(argv[6]);
   }
   // printf("transaction size: %d\n", TRANACTION_SIZE);
   // printf("Number of parallel transactions: %d\n", tNoOfParallelTrans);
@@ -288,7 +294,7 @@ int main(int argc, char* argv[])
   // printf("Conn String: %s\n", argv[1]);
 
   Ndb_cluster_connection *conn = connect_to_cluster(connstring);
-
+  conn->set_timeout(1000000); // 1000s
   // printf("Connection Established. Conn String: %s\n", connstring);
 
   Ndb* ndb = new Ndb(conn, database);
@@ -472,6 +478,9 @@ int main(int argc, char* argv[])
       ndb->sendPollNdb(3000, tNoOfParallelTrans );
       nPreparedTransactions=0;
       dataleft = false;
+      
+      usleep(sleepTimeMilli);
+
     }
 
     // SYNC
