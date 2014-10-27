@@ -1,0 +1,4 @@
+test nokey
+id int
+gram text
+count real

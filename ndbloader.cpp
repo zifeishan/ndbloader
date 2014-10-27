@@ -35,6 +35,7 @@ using namespace std;
 
 #define MAXTRANS 1024  // max number of outstanding transactions in one Ndb object
 #define MAX_TRANSALLOC_RETRY 10
+#define NOKEY_IDENTIFIER "nokey"
 
 static char connstring[255] = {};
 static char database[255] = {};
@@ -47,6 +48,7 @@ static int tNoOfParallelTrans = 60;   // max no of parallel trans at a time
 static int nPreparedTransactions = 0; // a counter
 
 static unsigned int sleepTimeMilli = 0;
+static bool noKey = false;
 
 /**
  * callback struct.
@@ -216,6 +218,28 @@ int main(int argc, char* argv[])
   getline(fin, tmpTableName);
   strcpy(tablename, tmpTableName.c_str());
 
+  // find a "nokey" in table name
+  istringstream lineReader(tmpTableName);
+  string firstpart;
+  if( getline(lineReader, firstpart, ' ') )
+  {
+    printf("first part: %s", firstpart.c_str());
+    string secondpart;
+    if( getline(lineReader, secondpart) ) {
+      // "firstpart secondpart"
+      if (secondpart != NOKEY_IDENTIFIER) {
+        cerr << "ERROR: could not recognize identifier: " << secondpart << endl;
+        cerr << "Do you mean: '" << NOKEY_IDENTIFIER << "'?"<< endl;
+        exit(-1);
+      } else {
+        noKey = true;
+      }
+      // printf("Attr: %s %s\n", key.c_str(), value.c_str());
+    }
+    strcpy(tablename, firstpart.c_str());
+  } 
+
+
   // Initialize transaction array
   for(int i = 0 ; i < MAXTRANS ; i++) 
   {
@@ -325,6 +349,23 @@ int main(int argc, char* argv[])
     NdbOperation *myOperation= transaction[current].conn->getNdbOperation(myTable);
     myOperation->insertTuple();
 
+    // If no primary key is assigned, have to set the tupleId explicitly
+    if (noKey) {
+      unsigned long long tupleId = 0;
+      // int
+      // Ndb::getAutoIncrementValue(const char* aTableName,
+      //                      Uint64 & autoValue, Uint32 cacheSize,
+      //                      Uint64 step, Uint64 start)
+      if (ndb->getAutoIncrementValue(myTable, tupleId, 32768, 1, 1) != 0) {
+        cerr << "Error occurs while getting tupleID to insert.\n";
+        exit(-1);
+      }
+
+      myOperation->equal("$PK", tupleId);
+      if (tupleId % 10000 == 0) {
+        cerr <<"DEBUG: set tupleID to " << tupleId << endl;
+      }
+    }
     // Iterate for each field
     int i = 0;
     for (string field; getline(ss, field, field_delim); i++) {
