@@ -246,7 +246,7 @@ int main(int argc, char* argv[])
     TRANACTION_SIZE = atoi(argv[6]);
   }
   // printf("transaction size: %d\n", TRANACTION_SIZE);
-  printf("Number of parallel transactions: %d\n", tNoOfParallelTrans);
+  // printf("Number of parallel transactions: %d\n", tNoOfParallelTrans);
 
   strcpy(connstring, argv[1]);
   strcpy(database, argv[2]);
@@ -258,7 +258,7 @@ int main(int argc, char* argv[])
   string tmpTableName;
   getline(fin, tmpTableName);
   strcpy(tablename, tmpTableName.c_str());
-  printf("Copying to table: %s\n", tablename);
+  // printf("Copying to table: %s\n", tablename);
 
   // Initialize transaction array
   for(int i = 0 ; i < MAXTRANS ; i++) 
@@ -278,18 +278,18 @@ int main(int argc, char* argv[])
         // "key, value"
         fieldName.push_back(key);
         fieldType.push_back(value);
-        printf("Attr: %s %s\n", key.c_str(), value.c_str());
+        // printf("Attr: %s %s\n", key.c_str(), value.c_str());
       }
     }
   }
   fin.close();
 
 
-  printf("Conn String: %s\n", argv[1]);
+  // printf("Conn String: %s\n", argv[1]);
 
   Ndb_cluster_connection *conn = connect_to_cluster(connstring);
 
-  printf("Connection Established. Conn String: %s\n", connstring);
+  // printf("Connection Established. Conn String: %s\n", connstring);
 
   Ndb* ndb = new Ndb(conn, database);
   if (ndb->init(1024) == -1)
@@ -297,7 +297,7 @@ int main(int argc, char* argv[])
      // what is this?
   }
   ndb->waitUntilReady(10000);
-  printf("Connected to database: %s\n", database);  
+  printf("Connected: database [%s], connstr [%s], #parallelTrans=[%d]. Load table [%s] from file [%s]...\n", database, connstring, tNoOfParallelTrans, tablename, filepath);
 
   // do_insert(*ndb);
 
