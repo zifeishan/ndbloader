@@ -17,11 +17,11 @@ g++ ndbloader.o -o ndbloader $LDFLAGS $SYS_LIB
 
 case $(uname) in
   Darwin)
-    echo "RUN: DYLD_LIBRARY_PATH="`mysql_config --variable=pkglibdir`" ./ndbloader [connection string]"
+    echo "RUN: DYLD_LIBRARY_PATH="`mysql_config --variable=pkglibdir`" ./ndbloader conn_string database data_file table_format_file [nParallelTransactions=10000] [milliSleep=0]"
     ;;
 
   Linux*)
-    echo "RUN: LD_LIBRARY_PATH="`mysql_config --variable=pkglibdir`" ./ndbloader [connection string]"
+    echo "RUN: LD_LIBRARY_PATH="`mysql_config --variable=pkglibdir`" ./ndbloader conn_string database data_file table_format_file [nParallelTransactions=10000] [milliSleep=0]"
     ;;
 
   *)
