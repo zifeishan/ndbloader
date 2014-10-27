@@ -281,7 +281,7 @@ int main(int argc, char* argv[])
       cursor = 0;
     }
 
-    while(int retries = 0; retries < MAX_TRANSALLOC_RETRY; retries++) {
+    for(int retries = 0; retries < MAX_TRANSALLOC_RETRY; retries++) {
       // for(int cursor=0; cursor < MAXTRANS; cursor++) 
       while(true)
       {
