@@ -68,7 +68,7 @@ static int TRANACTION_SIZE = 10000;
 static int tNoOfParallelTrans = 60;   // max no of parallel trans at a time
 static int nPreparedTransactions = 0; // a counter
 
-static unsigned int sleepTimeMilli = 20;
+static unsigned int sleepTimeMilli = 0;
 
 // static Ndb* ndb;
 
@@ -205,7 +205,7 @@ void make_ndb_varchar(char *buffer, const char *str)
 // Insert problems with varchar: use this!
 void make_ndb_char(char *buffer, const char *str)
 {
-  memset(buffer, 32, sizeof(buffer));
+  memset(buffer, 32, sizeof(buffer) * sizeof(char));
   memcpy(buffer, str, strlen(str));
 }
 
@@ -366,40 +366,45 @@ int main(int argc, char* argv[])
     if (cursor >= MAXTRANS) {
       cursor = 0;
     }
-    for(int cursor=0; cursor < MAXTRANS; cursor++) // TODO optimize this
-    // while(true)
-    {
-      // printf("%d %d %a\n", i, transaction[i].used, transaction[i].conn );
-      if(transaction[cursor].used == 0)
+    while(true) {
+      for(int cursor=0; cursor < MAXTRANS; cursor++) // TODO optimize this
+      // while(true)
       {
-        // printf("Trans %d\n", i);
-        
-        current = cursor;
-        cb = new async_callback_t;
-        /**
-         * Set data used by the callback
-         */
-        cb->ndb = ndb;  //handle to Ndb object so that we can close transaction
-                          // in the callback (alt. make myNdb global).
+        // printf("%d %d %a\n", i, transaction[i].used, transaction[i].conn );
+        if(transaction[cursor].used == 0)
+        {
+          // printf("Trans %d\n", i);
+          
+          current = cursor;
+          cb = new async_callback_t;
+          /**
+           * Set data used by the callback
+           */
+          cb->ndb = ndb;  //handle to Ndb object so that we can close transaction
+                            // in the callback (alt. make myNdb global).
 
-        cb->transaction = current; //This is the number (id)  of this transaction
-        transaction[current].used = 1 ; //Mark the transaction as used
-        transTail = current; // optimizing scan
+          cb->transaction = current; //This is the number (id)  of this transaction
+          transaction[current].used = 1 ; //Mark the transaction as used
+          transTail = current; // optimizing scan
 
+          break;
+        }
+        else { // used
+          cursor += 1; 
+          if (cursor >= MAXTRANS) {
+            cursor = 0;
+          }
+
+        }
+      }
+      if(current == -1) {
+        cerr << "WARNING: Number of transactions in parallel exceeds the maximum. retrying..." << endl;
+        continue;
+      } else {
         break;
       }
-      else { // used
-        cursor += 1; 
-        if (cursor >= MAXTRANS) {
-          cursor = 0;
-        }
+    }
 
-      }
-    }
-    if(current == -1) {
-      cerr << "FATAL: number of transactions in parallel exceeds the maximum. Terminating." << endl;
-      return -1;
-    }
 
 
     // DEBUG
