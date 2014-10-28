@@ -36,6 +36,7 @@ using namespace std;
 #define MAXTRANS 1024  // max number of outstanding transactions in one Ndb object
 #define MAX_TRANSALLOC_RETRY 10
 #define NOKEY_IDENTIFIER "nokey"
+#define TUPLEID_FETCH_SIZE 32768
 
 static char connstring[255] = {};
 static char database[255] = {};
@@ -223,7 +224,7 @@ int main(int argc, char* argv[])
   string firstpart;
   if( getline(lineReader, firstpart, ' ') )
   {
-    printf("first part: %s", firstpart.c_str());
+    // printf("first part: %s", firstpart.c_str());
     string secondpart;
     if( getline(lineReader, secondpart) ) {
       // "firstpart secondpart"
@@ -356,15 +357,15 @@ int main(int argc, char* argv[])
       // Ndb::getAutoIncrementValue(const char* aTableName,
       //                      Uint64 & autoValue, Uint32 cacheSize,
       //                      Uint64 step, Uint64 start)
-      if (ndb->getAutoIncrementValue(myTable, tupleId, 32768, 1, 1) != 0) {
+      if (ndb->getAutoIncrementValue(myTable, tupleId, TUPLEID_FETCH_SIZE, 1, 1) != 0) {
         cerr << "Error occurs while getting tupleID to insert.\n";
         exit(-1);
       }
 
       myOperation->equal("$PK", tupleId);
-      if (tupleId % 10000 == 0) {
-        cerr <<"DEBUG: set tupleID to " << tupleId << endl;
-      }
+      //if (tupleId % 10000 == 0) {
+      //  cerr <<"DEBUG: set tupleID to " << tupleId << endl;
+      //}
     }
     // Iterate for each field
     int i = 0;
