@@ -14,6 +14,7 @@ g++ -c ndbloader.cpp $CFLAGS
 g++ ndbloader.o -o ndbloader $LDFLAGS $SYS_LIB
  # -Wl,-rpath  -Wl,/Users/zifei/package/mysql/lib
 # g++ -o ndbloader $CFLAGS $LDFLAGS $SYS_LIB
+rm ndbloader.o
 
 case $(uname) in
   Darwin)
