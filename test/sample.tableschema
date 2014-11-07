@@ -2,3 +2,4 @@ test nokey
 id int
 gram text
 count real
+is_true boolean

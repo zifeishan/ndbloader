@@ -11,4 +11,5 @@ DROP TABLE IF EXISTS test;
 CREATE TABLE test(
   id bigint,
   gram text,
-  count real) engine=ndb;
+  count real,
+  is_true boolean) engine=ndb;
