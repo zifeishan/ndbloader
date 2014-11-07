@@ -395,6 +395,11 @@ int main(int argc, char* argv[])
         // myOperation->setValue(fieldName[i].c_str(), field.c_str());
       }
 
+      if (strcmp(fieldType[i].c_str(), "boolean") == 0) {
+        int value = atoi(field.c_str());
+        myOperation->setValue(fieldName[i].c_str(), value);
+      }
+
       if (strcmp(fieldType[i].c_str(), "text") == 0) {
         NdbBlob *myBlobHandle = myOperation->getBlobHandle(fieldName[i].c_str());
         if (myBlobHandle == NULL) {
