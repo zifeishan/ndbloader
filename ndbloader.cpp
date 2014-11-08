@@ -371,6 +371,11 @@ int main(int argc, char* argv[])
     int i = 0;
     for (string field; getline(ss, field, field_delim); i++) {
 
+      // For NULL value, do not set value for this field
+      if (strcmp(field.c_str(), "\\N") == 0) {
+        continue;
+      }
+
       if (strcmp(fieldType[i].c_str(), "int") == 0) {
         // using a int64 to prevent problems..
         long long value = atoll(field.c_str());
